@@ -44,42 +44,47 @@ void child_process(int sock)
     char b[] = "This is on the received fd!\n";
 
     if(ancil_recv_fd(sock, &fd)) {
-	perror("ancil_recv_fd");
-	exit(1);
+        perror("ancil_recv_fd");
+        exit(1);
     } else {
-	printf("Received fd: %d\n", fd);
+        printf("Received fd: %d\n", fd);
     }
     write(fd, b, sizeof(b));
     close(fd);
-    sleep(2);
+
+    // signal to the parent that we're ready to move on
+    write(sock, "!", 1);
 
     nfds = ancil_recv_fds(sock, fds, 3);
     if(nfds < 0) {
-	perror("ancil_recv_fds");
-	exit(1);
+        perror("ancil_recv_fds");
+        exit(1);
     } else {
-	printf("Received %d/3 fds : %d %d %d.\n", nfds,
-	    fds[0], fds[1], fds[2]);
+        printf("Received %d/3 fds : %d %d %d.\n", nfds,
+            fds[0], fds[1], fds[2]);
     }
 }
 
 void parent_process(int sock)
 {
     int fds[2] = { 1, 2 };
+    char ignored;
 
     if(ancil_send_fd(sock, 1)) {
-	perror("ancil_send_fd");
-	exit(1);
+        perror("ancil_send_fd");
+        exit(1);
     } else {
-	printf("Sent fd.\n");
+        printf("Sent fd.\n");
     }
-    sleep(1);
+
+    // Wait until the child is ready
+    read(sock, &ignored, 1);
 
     if(ancil_send_fds(sock, fds, 2)) {
-	perror("ancil_send_fds");
-	exit(1);
+        perror("ancil_send_fds");
+        exit(1);
     } else {
-	printf("Sent two fds.\n");
+        printf("Sent two fds.\n");
     }
 }
 
@@ -88,25 +93,25 @@ int main(void)
     int sock[2];
 
     if(socketpair(PF_UNIX, SOCK_STREAM, 0, sock)) {
-	perror("socketpair");
-	exit(1);
+        perror("socketpair");
+        exit(1);
     } else {
-	printf("Established socket pair: (%d, %d)\n", sock[0], sock[1]);
+        printf("Established socket pair: (%d, %d)\n", sock[0], sock[1]);
     }
 
     switch(fork()) {
-	case 0:
-	    close(sock[0]);
-	    child_process(sock[1]);
-	    break;
-	case -1:
-	    perror("fork");
-	    exit(1);
-	default:
-	    close(sock[1]);
-	    parent_process(sock[0]);
-	    wait(NULL);
-	    break;
+        case 0:
+            close(sock[0]);
+            child_process(sock[1]);
+            break;
+        case -1:
+            perror("fork");
+            exit(1);
+        default:
+            close(sock[1]);
+            parent_process(sock[0]);
+            wait(NULL);
+            break;
     }
     return(0);
 }
