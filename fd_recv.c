@@ -1,7 +1,7 @@
 /***************************************************************************
  * libancillary - black magic on Unix domain sockets
  * (C) Nicolas George
- * fd_send.c - receiving file descriptors
+ * fd_recv.c - receiving file descriptors
  ***************************************************************************/
 
 /*
@@ -47,16 +47,16 @@ int
 ancil_recv_fds_with_buffer(int sock, int *fds, unsigned n_fds, void *buffer)
 {
     struct msghdr msghdr;
-    char nothing;
-    struct iovec nothing_ptr;
+    struct iovec fds_data_ptr;
     struct cmsghdr *cmsg;
+    unsigned n_fds_recvd;
     int i;
 
-    nothing_ptr.iov_base = &nothing;
-    nothing_ptr.iov_len = 1;
+    fds_data_ptr.iov_base = &n_fds_recvd;
+    fds_data_ptr.iov_len = sizeof(unsigned);
     msghdr.msg_name = NULL;
     msghdr.msg_namelen = 0;
-    msghdr.msg_iov = &nothing_ptr;
+    msghdr.msg_iov = &fds_data_ptr;
     msghdr.msg_iovlen = 1;
     msghdr.msg_flags = 0;
     msghdr.msg_control = buffer;
@@ -66,14 +66,15 @@ ancil_recv_fds_with_buffer(int sock, int *fds, unsigned n_fds, void *buffer)
     cmsg->cmsg_level = SOL_SOCKET;
     cmsg->cmsg_type = SCM_RIGHTS;
     for(i = 0; i < n_fds; i++)
-	((int *)CMSG_DATA(cmsg))[i] = -1;
+        ((int *)CMSG_DATA(cmsg))[i] = -1;
     
     if(recvmsg(sock, &msghdr, 0) < 0)
-	return(-1);
+        return(-1);
+    if(n_fds_recvd > n_fds)
+        return(-1);
     for(i = 0; i < n_fds; i++)
-	fds[i] = ((int *)CMSG_DATA(cmsg))[i];
-    n_fds = (cmsg->cmsg_len - sizeof(struct cmsghdr)) / sizeof(int);
-    return(n_fds);
+        fds[i] = (i < n_fds_recvd) ? ((int *)CMSG_DATA(cmsg))[i] : -1;
+    return(n_fds_recvd);
 }
 
 #ifndef SPARE_RECV_FDS

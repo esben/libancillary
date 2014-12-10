@@ -47,16 +47,15 @@ int
 ancil_send_fds_with_buffer(int sock, const int *fds, unsigned n_fds, void *buffer)
 {
     struct msghdr msghdr;
-    char nothing = '!';
-    struct iovec nothing_ptr;
+    struct iovec fds_data_ptr;
     struct cmsghdr *cmsg;
     int i;
 
-    nothing_ptr.iov_base = &nothing;
-    nothing_ptr.iov_len = 1;
+    fds_data_ptr.iov_base = &n_fds;
+    fds_data_ptr.iov_len = sizeof(unsigned);
     msghdr.msg_name = NULL;
     msghdr.msg_namelen = 0;
-    msghdr.msg_iov = &nothing_ptr;
+    msghdr.msg_iov = &fds_data_ptr;
     msghdr.msg_iovlen = 1;
     msghdr.msg_flags = 0;
     msghdr.msg_control = buffer;
@@ -66,7 +65,7 @@ ancil_send_fds_with_buffer(int sock, const int *fds, unsigned n_fds, void *buffe
     cmsg->cmsg_level = SOL_SOCKET;
     cmsg->cmsg_type = SCM_RIGHTS;
     for(i = 0; i < n_fds; i++)
-	((int *)CMSG_DATA(cmsg))[i] = fds[i];
+        ((int *)CMSG_DATA(cmsg))[i] = fds[i];
     return(sendmsg(sock, &msghdr, 0) >= 0 ? 0 : -1);
 }
 
