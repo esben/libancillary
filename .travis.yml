@@ -1,0 +1,9 @@
+language: c
+compiler:
+  - clang
+  - gcc
+script:
+  - touch configure aclocal.m4 config.h.in Makefile.in Makefile.am */Makefile.in */Makefile.am
+  - ./configure
+  - make
+  - make check
