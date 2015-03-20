@@ -1,0 +1,5 @@
+SUBDIRS = src . test
+
+ACLOCAL_AMFLAGS = -I m4
+
+AM_CPPFLAGS = -Wall
